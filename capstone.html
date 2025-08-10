@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Automated Deployment System — Prototype</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa8bd;--accent:#5eead4;--accent-2:#60a5fa;--success:#10b981;--danger:#ef4444}
+    *{box-sizing:border-box}
+    body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:linear-gradient(180deg,#071024 0%, #071427 60%); color:#e6eef8}
+    header{display:flex;align-items:center;gap:16px;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo .icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#052;box-shadow:0 6px 18px rgba(96,165,250,0.12)}
+    h1{font-size:18px;margin:0}
+    header p{margin:0;color:var(--muted);font-size:13px}
+
+    .container{display:grid;grid-template-columns:280px 1fr 360px;gap:18px;padding:20px}
+
+    /* Sidebar */
+    .sidebar{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:16px;height:calc(100vh - 108px);overflow:auto}
+    .nav-section{margin-bottom:18px}
+    .nav-section h3{font-size:13px;margin:6px 0 10px;color:var(--muted)}
+    .env-card{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:12px;border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+    .env-card strong{display:block}
+    .env-tag{font-size:12px;color:var(--muted)}
+    .small-btn{background:rgba(255,255,255,0.03);border:none;color:var(--muted);padding:6px 8px;border-radius:8px;font-size:13px;cursor:pointer}
+
+    /* Main */
+    main{min-height:70vh}
+    .panel{background:var(--card);border-radius:12px;padding:16px;margin-bottom:18px;border:1px solid rgba(255,255,255,0.03)}
+    .panel h2{margin:0 0 10px;font-size:16px}
+    .pipeline{display:flex;gap:12px;align-items:center;overflow:auto;padding-bottom:8px}
+
+    .stage{min-width:200px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015));border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:8px}
+    .stage .title{font-weight:600}
+    .stage .cap{font-size:12px;color:var(--muted)}
+    .stage .status{margin-top:6px;font-size:13px}
+    .stage .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.02);font-weight:600}
+
+    .flow-arrow{font-size:22px;color:rgba(255,255,255,0.06)}
+
+    .actions{display:flex;gap:10px;align-items:center}
+    .btn{background:linear-gradient(90deg,var(--accent-2),var(--accent));border:none;padding:10px 14px;border-radius:10px;color:#04243a;font-weight:700;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+
+    /* Logs */
+    .log-area{height:220px;overflow:auto;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));padding:12px;border-radius:8px;border:1px dashed rgba(255,255,255,0.02);font-family:monospace;font-size:13px;color:#cfeafc}
+    .log-line{padding:2px 0}
+    .log-info{color:#cfeafc}
+    .log-success{color:var(--success)}
+    .log-error{color:var(--danger)}
+
+    /* Right column */
+    .card-row{display:flex;gap:12px}
+    .mini-card{flex:1;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02)}
+    .monitor{height:140px}
+
+    .footer-note{font-size:12px;color:var(--muted);margin-top:8px}
+
+    /* Responsive */
+    @media (max-width:1100px){.container{grid-template-columns:1fr;}
+      header{flex-direction:column;align-items:flex-start}
+      .sidebar{height:auto}
+      .monitor{height:180px}
+    }
+
+    /* small visual niceties */
+    .badge{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-weight:700}
+    .status-running{background:linear-gradient(90deg,#fbbf24, #10b981);color:#041117}
+    .status-success{background:linear-gradient(90deg,#10b981,#60a5fa);color:#022}
+    .status-failed{background:linear-gradient(90deg,#ef4444,#f97316);color:#140600}
+
+    /* mini svg placeholders */
+    .tech-list{display:flex;flex-wrap:wrap;gap:8px}
+    .tech-item{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02);font-size:13px}
+
+    /* pipeline step animations */
+    .step-dot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,0.04);display:inline-block;margin-right:8px}
+    .step-dot.on{background:var(--accent)}
+
+    /* tiny table */
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.02)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <div class="icon">AD</div>
+      <div>
+        <h1>Automated Deployment System — Prototype</h1>
+        <p>Modular CI/CD with integrated testing, containerization & monitoring (interactive prototype)</p>
+      </div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <p style="margin:0 0 6px">Standards: <span style="color:var(--muted)">ISO/IEC 27001</span> • <span style="color:var(--muted)">IEEE 730</span></p>
+      <small style="color:var(--muted)">Prototype — single-file demo. Save as HTML and open in browser.</small>
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="nav-section">
+        <h3>Environments</h3>
+        <div class="env-card"><div><strong>Development</strong><span class="env-tag">Branch: feature/*</span></div><button class="small-btn" onclick="selectEnv('dev')">Select</button></div>
+        <div class="env-card"><div><strong>Staging</strong><span class="env-tag">Branch: release/*</span></div><button class="small-btn" onclick="selectEnv('staging')">Select</button></div>
+        <div class="env-card"><div><strong>Production</strong><span class="env-tag">Branch: main</span></div><button class="small-btn" onclick="selectEnv('prod')">Select</button></div>
+      </div>
+
+      <div class="nav-section">
+        <h3>Pipeline Templates</h3>
+        <div class="env-card"><div><strong>Standard CI/CD</strong><span class="env-tag">Build → Test → Deploy</span></div><button class="small-btn" onclick="loadTemplate('standard')">Load</button></div>
+        <div class="env-card"><div><strong>Canary Release</strong><span class="env-tag">Gradual rollout</span></div><button class="small-btn" onclick="loadTemplate('canary')">Load</button></div>
+        <div class="env-card"><div><strong>Blue/Green</strong><span class="env-tag">Safe switch</span></div><button class="small-btn" onclick="loadTemplate('bg')">Load</button></div>
+      </div>
+
+      <div class="nav-section">
+        <h3>Tech Stack</h3>
+        <div class="tech-list">
+          <div class="tech-item">Git</div>
+          <div class="tech-item">Jenkins</div>
+          <div class="tech-item">GitLab CI</div>
+          <div class="tech-item">Docker</div>
+          <div class="tech-item">Kubernetes</div>
+          <div class="tech-item">Selenium</div>
+          <div class="tech-item">JUnit</div>
+          <div class="tech-item">Postman</div>
+          <div class="tech-item">Prometheus</div>
+          <div class="tech-item">Grafana</div>
+          <div class="tech-item">SonarQube</div>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <h3>Research Focus</h3>
+        <p style="color:var(--muted);font-size:13px">Automation challenges across multiple environments, pipeline optimization for large apps, and secure delivery best practices.</p>
+      </div>
+    </aside>
+
+    <main>
+      <section class="panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <h2>Pipeline Designer</h2>
+            <p style="margin:0;color:var(--muted);font-size:13px">Drag & run stages (simulated). Click <em>Run Pipeline</em> to see a demo execution and integrated test results.</p>
+          </div>
+          <div class="actions">
+            <button class="btn" onclick="runPipeline()">Run Pipeline</button>
+            <button class="btn ghost" onclick="resetPipeline()">Reset</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;align-items:center">
+          <div class="pipeline" id="pipeline">
+            <div class="stage" data-step="checkout">
+              <div class="title">Checkout</div>
+              <div class="cap">Fetch code from Git</div>
+              <div class="status"><span class="pill"><span class="step-dot" id="dot-checkout"></span> Idle</span></div>
+            </div>
+            <div class="flow-arrow">➜</div>
+            <div class="stage" data-step="build">
+              <div class="title">Build</div>
+              <div class="cap">Compile & artifact</div>
+              <div class="status"><span class="pill"><span class="step-dot" id="dot-build"></span> Idle</span></div>
+            </div>
+            <div class="flow-arrow">➜</div>
+            <div class="stage" data-step="test">
+              <div class="title">Test</div>
+              <div class="cap">Unit, Integration, E2E</div>
+              <div class="status"><span class="pill"><span class="step-dot" id="dot-test"></span> Idle</span></div>
+            </div>
+            <div class="flow-arrow">➜</div>
+            <div class="stage" data-step="containerize">
+              <div class="title">Containerize</div>
+              <div class="cap">Docker image & registry</div>
+              <div class="status"><span class="pill"><span class="step-dot" id="dot-container"></span> Idle</span></div>
+            </div>
+            <div class="flow-arrow">➜</div>
+            <div class="stage" data-step="deploy">
+              <div class="title">Deploy</div>
+              <div class="cap">Kubernetes rollout</div>
+              <div class="status"><span class="pill"><span class="step-dot" id="dot-deploy"></span> Idle</span></div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="panel">
+        <h2>Execution & Test Results</h2>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1}">
+            <div class="log-area" id="logArea"><div class="log-line log-info">[INFO] Ready — press "Run Pipeline" to simulate execution.</div></div>
+            <div class="footer-note">Logs are simulated for demo purposes. Real pipelines would stream logs from CI tools (e.g., Jenkins agents).</div>
+          </div>
+          <div style="width:260px">
+            <div class="mini-card">
+              <h3 style="margin:0 0 8px">Tests</h3>
+              <table>
+                <thead><tr><th>Suite</th><th>Result</th></tr></thead>
+                <tbody id="testTable">
+                  <tr><td>Unit</td><td id="unitRes">—</td></tr>
+                  <tr><td>Integration</td><td id="intRes">—</td></tr>
+                  <tr><td>E2E</td><td id="e2eRes">—</td></tr>
+                </tbody>
+              </table>
+              <div style="margin-top:8px">
+                <button class="small-btn" onclick="rerunTests()">Re-run tests</button>
+                <button class="small-btn" onclick="showTestYAML()">Show pipeline YAML</button>
+              </div>
+            </div>
+            <div style="height:10px"></div>
+            <div class="mini-card">
+              <h3 style="margin:0 0 8px">Security Scan</h3>
+              <p style="margin:0;color:var(--muted);font-size:13px">SonarQube simulated summary</p>
+              <div style="margin-top:8px"><strong id="sonarScore">—</strong> Quality Gate</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Containerization & Orchestration (Simulated)</h2>
+        <div style="display:flex;gap:12px;align-items:stretch">
+          <div style="flex:1">
+            <div class="mini-card">
+              <h3 style="margin:0 0 8px">Docker Image</h3>
+              <p style="margin:0;color:var(--muted);font-size:13px">Image: myapp:1.2.3</p>
+              <pre style="background:rgba(0,0,0,0.02);padding:8px;border-radius:6px;margin-top:8px;color:#cfeafc;font-family:monospace;font-size:13px">FROM openjdk:11-jre
+COPY target/app.jar /app/app.jar
+ENTRYPOINT ["java","-jar","/app/app.jar"]</pre>
+            </div>
+          </div>
+          <div style="width:300px">
+            <div class="mini-card">
+              <h3 style="margin:0 0 8px">Kubernetes (pods)</h3>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <div style="flex-basis:45%;padding:8px;background:rgba(255,255,255,0.015);border-radius:8px">pod/myapp-1 <div style="font-size:12px;color:var(--muted)">Running</div></div>
+                <div style="flex-basis:45%;padding:8px;background:rgba(255,255,255,0.015);border-radius:8px">pod/myapp-2 <div style="font-size:12px;color:var(--muted)">Running</div></div>
+                <div style="flex-basis:45%;padding:8px;background:rgba(255,255,255,0.015);border-radius:8px">pod/myapp-3 <div style="font-size:12px;color:var(--muted)">Pending</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <aside>
+      <div class="panel" style="width:320px;">
+        <h2>Monitoring</h2>
+        <div class="monitor" id="monitorCanvas"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <div class="mini-card" style="flex:1">
+            <div style="font-size:12px;color:var(--muted)">Uptime</div>
+            <div style="font-weight:700">99.97%</div>
+          </div>
+          <div class="mini-card" style="flex:1">
+            <div style="font-size:12px;color:var(--muted)">Errors</div>
+            <div style="font-weight:700;color:var(--danger)" id="errorCount">0</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <h3 style="margin:0 0 8px">Policies & Notes</h3>
+          <p style="color:var(--muted);font-size:13px">Incorporate DevSecOps checks, static analysis, and secure secrets management (Vault, KMS).</p>
+        </div>
+      </div>
+
+      <div style="height:18px"></div>
+
+      <div class="panel" style="width:320px;">
+        <h3 style="margin:0 0 8px">Deliverables & Roadmap</h3>
+        <ol style="color:var(--muted)">
+          <li>Phase 1 — Design pipelines</li>
+          <li>Phase 2 — Integrate test suites</li>
+          <li>Phase 3 — Containerize & orchestrate</li>
+          <li>Phase 4 — Monitor & feedback</li>
+          <li>Phase 5 — Full rollout & docs</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // Simple interactive simulation for demo purposes
+    const logArea = document.getElementById('logArea');
+    const testTable = {unit:document.getElementById('unitRes'), int:document.getElementById('intRes'), e2e:document.getElementById('e2eRes')};
+    const sonarScore = document.getElementById('sonarScore');
+    const errorCount = document.getElementById('errorCount');
+
+    let currentEnv = 'dev';
+    function selectEnv(e){ currentEnv = e; appendLog('[INFO] Selected environment: '+e); }
+    function loadTemplate(t){ appendLog('[INFO] Loaded pipeline template: '+t); }
+
+    function appendLog(msg, cls='log-info'){
+      const el = document.createElement('div'); el.className='log-line '+cls; el.textContent = '['+new Date().toLocaleTimeString()+'] '+msg; logArea.appendChild(el); logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    function setDot(id, on){ const d = document.getElementById('dot-'+id); if(!d) return; if(on) d.classList.add('on'); else d.classList.remove('on'); }
+
+    function runPipeline(){
+      appendLog('Triggering pipeline...', 'log-info');
+      const steps=['checkout','build','test','container','deploy'];
+      let i=0; errorCount.textContent = '0'; sonarScore.textContent='—';
+      const runNext = ()=>{
+        if(i>=steps.length){ appendLog('Pipeline finished.', 'log-success'); finalizeTests(); return; }
+        const step = steps[i];
+        appendLog('Starting step: '+step+'...', 'log-info'); setDot(step,true);
+        // simulate time and possible failure for demo
+        setTimeout(()=>{
+          const fail = (step==='test' && Math.random()<0.12) || (step==='deploy' && Math.random()<0.08);
+          if(fail){ appendLog('Step failed: '+step, 'log-error'); setDot(step,false); errorCount.textContent = parseInt(errorCount.textContent||'0')+1; appendLog('Aborting pipeline due to failure.', 'log-error');
+            // show fail states
+            setTimeout(()=>{ appendLog('Rolling back changes (if supported) — simulated.', 'log-info'); }, 600);
+            return;
+          } else {
+            appendLog('Step completed: '+step, 'log-success'); setDot(step,false);
+            i++; runNext();
+          }
+        }, 900 + Math.random()*900);
+      };
+      runNext();
+    }
+
+    function finalizeTests(){
+      // simulate test results
+      const r1 = Math.random();
+      testTable.unit.textContent = r1>0.02 ? 'PASS' : 'FAIL'; testTable.unit.style.color = r1>0.02 ? '#10b981' : '#ef4444';
+      const r2 = Math.random();
+      testTable.int.textContent = r2>0.08 ? 'PASS' : 'FAIL'; testTable.int.style.color = r2>0.08 ? '#10b981' : '#ef4444';
+      const r3 = Math.random();
+      testTable.e2e.textContent = r3>0.18 ? 'PASS' : 'FAIL'; testTable.e2e.style.color = r3>0.18 ? '#10b981' : '#ef4444';
+      sonarScore.textContent = Math.floor(60 + Math.random()*40) + '%';
+      appendLog('Tests completed. Unit:'+testTable.unit.textContent+' Integration:'+testTable.int.textContent+' E2E:'+testTable.e2e.textContent, 'log-info');
+      if([testTable.unit.textContent,testTable.int.textContent,testTable.e2e.textContent].includes('FAIL')){
+        appendLog('One or more tests failed — pipeline marked as unstable.', 'log-error');
+        errorCount.textContent = parseInt(errorCount.textContent||'0')+1;
+      } else {
+        appendLog('All tests passed — ready to promote to next environment.', 'log-success');
+      }
+    }
+
+    function resetPipeline(){
+      logArea.innerHTML = '<div class="log-line log-info">[INFO] Reset. Ready — press "Run Pipeline" to simulate execution.</div>';
+      testTable.unit.textContent = '—'; testTable.int.textContent='—'; testTable.e2e.textContent='—'; sonarScore.textContent='—'; errorCount.textContent='0';
+      ['checkout','build','test','container','deploy'].forEach(s=>setDot(s,false));
+    }
+
+    function rerunTests(){ appendLog('Re-running test suites (simulated)...'); setTimeout(finalizeTests,800); }
+
+    function showTestYAML(){
+      const yaml = `# Example pipeline (CI)\nstages:\n  - build\n  - test\n  - deploy\n\nbuild-job:\n  stage: build\n  script:\n    - mvn -B -DskipTests clean package\n\ntest-job:\n  stage: test\n  script:\n    - mvn test\n    - newman run collection.json\n\ndeploy-job:\n  stage: deploy\n  script:\n    - docker build -t registry/myapp:$CI_COMMIT_SHORT_SHA .\n    - kubectl apply -f k8s/deploy.yaml`;
+      alert(yaml);
+    }
+
+    // Tiny monitoring chart using Canvas
+    const monitor = document.getElementById('monitorCanvas');
+    const mc = document.createElement('canvas'); mc.width = 300; mc.height = 140; monitor.appendChild(mc); const ctx = mc.getContext('2d');
+    let datapoints = Array.from({length:40},()=>50+Math.random()*30);
+    function drawChart(){
+      ctx.clearRect(0,0,mc.width,mc.height);
+      // background
+      ctx.fillStyle = 'rgba(255,255,255,0.015)'; ctx.fillRect(0,0,mc.width,mc.height);
+      ctx.beginPath();
+      datapoints.forEach((v,i)=>{ const x = i*(mc.width/datapoints.length); const y = mc.height - (v/120)*mc.height; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(96,165,250,0.9)'; ctx.stroke();
+      // sparkline points
+      for(let i=0;i<datapoints.length;i++){ const x=i*(mc.width/datapoints.length); const y=mc.height - (datapoints[i]/120)*mc.height; ctx.beginPath(); ctx.arc(x,y,1.6,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.fill(); }
+    }
+    setInterval(()=>{ datapoints.shift(); datapoints.push(30 + Math.random()*80); drawChart(); }, 1200);
+    drawChart();
+
+    // init
+    appendLog('Prototype loaded.');
+  </script>
+</body>
+</html>
